@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from __future__ import division
 '''
 PaEdiatric ANthropometric measurement Outlier Flagging pipeline
