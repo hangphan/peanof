@@ -13,7 +13,7 @@ import numpy as np
 from datetime import datetime
 from optparse import  OptionParser
 from ggplot import * 
-mport matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from statsmodels.api import OLS
 from sklearn import linear_model
 import sys, os, logging
