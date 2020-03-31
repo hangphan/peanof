@@ -80,13 +80,13 @@ Or you can pull the peanof image from the public Docker repository
 
 #### 2. Running pipeline using docker image
 ##### a. Calculating SDS values input directly from commandline
-    docker run --rm -d  \
+    docker run --rm  \
       --name devtest \
       --mount source=`pwd`/testData,target=/data,type=bind \
       peanof:1.0 peanof.py -n 0 -d 1/01/2010 -e 12/3/2020,11/11/2019 -m 139,130 -g M -t HEIGHT   -o testNow.png
 
 ##### b. Running outlier flagging pipeline for an xlsx or csv inputfile containing height and weight measurements
-    docker run --rm -d  \
+    docker run --rm \
       --name devtest \
       --mount source=`pwd`/testData,target=/data,type=bind \
       peanof:1.0 peanof.py -n 1 -f test.csv
