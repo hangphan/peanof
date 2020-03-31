@@ -67,7 +67,11 @@ The following will produce flagging results as well as the growth charts of 'Chi
 
 
 #### 3. Outlier flagging of height/weight measurments for the whole dataset
+'python3 peanof.py -n 1 -f testData/test.csv -o testOut.csv'
 
+or simply
+
+'python3 peanof.py -n 1 -f testData/test.csv'
 
 ### Docker usage
 #### 1. Docker image build or pull
