@@ -1,34 +1,30 @@
 #!/usr/bin/env python3
 from __future__ import division
 '''
-PaEdiatric ANthropometric measurement Outlier Flagging pipeline
-    Developed by Hang Phan
-    Clinical Informatics Research Unit
+    PaEdiatric ANthropometric measurement Outlier Flagging pipeline
+    @author Dr Hang Phan
+    Clinical Informatics Research Unit (CIRU)
+    NIHR BRC Data Science Cross-cutting 
     University of Southampton
     hang.phan@soton.ac.uk
-    3/2020
+    31/2/2020
 '''
 import pandas as pd
 import numpy as np
-from datetime import datetime
 from optparse import  OptionParser
 from ggplot import * 
 import matplotlib.pyplot as plt
 from statsmodels.api import OLS
 from sklearn import linear_model
 import sys, os, logging
-import operator, random
 import logging.handlers
-import time, datetime
 
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger('Log')
 ch = logging.StreamHandler()
 ch.setFormatter(formatter)
 logger.addHandler(ch)
-logger.setLevel(logging.DEBUG)
-
-refGrowthFile="Growth_Reference_Data.csv"
+logger.setLevel(logging.INFO)
 
 mapType={"CHILD_HEIGHT":"HEIGHT", "CHILD_WEIGHT":"WEIGHT", "CHILD_BMI":"BMI"}
 mapTypeR = {"WEIGHT":"CHILD_WEIGHT", "HEIGHT": "CHILD_HEIGHT", "BMI":"CHILD_BMI", 'W': 'CHILD_WEIGHT', 'H':'CHILD_HEIGHT', 'WEIG': 'CHILD_WEIGHT', 'HEIG':'CHILD_HEIGHT'}
@@ -36,7 +32,6 @@ WHOThreshold ={'CHILD_HEIGHT': [-6,6], 'CHILD_WEIGHT': [-6,5], 'CHILD_BMI': [-5,
 AgeAdultHeight=18
 heightChangeThres=1
 LRCutoffSD = {'CHILD_HEIGHT': 2.0, 'CHILD_WEIGHT':2.9}
-#_baseDir="/".join(os.path.dirname(os.path.realpath(sys.argv[0])).split("/")[:-1])
 _baseDir = os.path.dirname(os.path.realpath(sys.argv[0]))
 
 
@@ -307,14 +302,12 @@ class childMeasurement(object):
         '''
         dft =  self.dfA[(self.dfA.MEASURE_TYPE == measureType)&(self.dfA.FILTER_FLAG!='WHO')].copy()
         reg = linear_model.LinearRegression()
-        print (dft.MEASURE_VAL, dft.AGE)
         regression = OLS(dft.MEASURE_VAL,dft.AGE).fit()
         infl = regression.get_influence()
         test = regression.outlier_test()
 
         k=1
         N = len(dft)
-        print (N)
         dft['OLS_BONFPVAL'] = test['bonf(p)']
         dft['OLS_STUDENTRES']= test['student_resid']
         dft['OLS_INFLUENCE'] = infl.summary_frame().cooks_d
@@ -408,7 +401,7 @@ class childMeasurement(object):
     
 class childSDS(object):
     def __init__(self, opts):
-        self.refGrowthFile = _baseDir +'/'+ opts.refg
+        self.refGrowthFile = opts.refg
         self.dfg =pd.read_csv(self.refGrowthFile, header=0)
         self.sds = opts.sds
         return 
@@ -447,7 +440,7 @@ class childSDS(object):
         M,L,S = float(val.M), float(val.L), float(val.S)
         SDSVal = ((measureVal/M)**L-1)/(L*S)
         if self.sds:
-            logger.info("SDS value of the child {} measurement of {} is {}".format(measureType, measureVal, round(SDSVal,2)))
+            logger.debug("SDS value of the child {} measurement of {} is {}".format(measureType, measureVal, round(SDSVal,2)))
         return round(SDSVal,2)
 
     
@@ -478,14 +471,12 @@ class childSDS(object):
 
 
 class PEANOF(object):
-    def __init__(self, sdsModule, fin, fon, demofn = None, ids=None):
+    def __init__(self, sdsModule, fin, fon,  ids=None):
         self.fin = fin
         self.sdsModule = sdsModule
         self.fon=fon
         self.ids = None
         self.children = []
-        self.demofn = demofn
-        self.dfDemo = None #demographic dataframe
         self.dfA = None # anthropometric dataframe
         self.dfAO = None
         self.dfSO = None
@@ -494,7 +485,11 @@ class PEANOF(object):
 
         if self.fon == None:
             self.fon= self.fin.replace('.csv', '_processed.csv').replace('.xlsx', '_processed.csv')
-        print (self.fon)    
+        if self.fon.endswith('csv'):
+            pass
+        else:
+            self.fon += '.csv'
+            
         if self.fin.endswith('xlsx'):
             self.dfA = pd.read_excel(self.fin)
         elif self.fin.endswith('csv'):
@@ -505,51 +500,38 @@ class PEANOF(object):
         self.readInputfiles()
         
     def readInputfiles(self):
-        if self.demofn ==None :
-           
-            if len(self.dfA.columns)!=7:
-                logger.error('Input file does not have the correct number of columns. The columns expected are: CID (ID of children), Date of birth, Gender, Age at measurement, Measure date, Measure type, Measure value. If the age at measurement is empty then the date of birth should be available.')
-                sys.exit()
-            self.dfA.columns = ['CID', 'DOB', 'GENDER', 'AGE', 'MEASURE_DATE', 'MEASURE_TYPE', 'MEASURE_VAL']
-            self.demoDf = self.dfA[['CID', 'DOB', 'GENDER']].drop_duplicates().reset_index()
-            self.dfA = self.dfA[['CID', 'AGE', 'MEASURE_DATE', 'MEASURE_TYPE', 'MEASURE_VAL']].drop_duplicates().reset_index()
-        else:
-            if len(self.dfA.columns !=5):
-                logger.error('Input file does not have the correct number of columns. Expected columns in order are:CID (ID of children),  Age at measurement, Measure date, Measure type, Measure value. If the age at measurement is empty then the date of birth and gender should be available in a separate demographic input file')
-                sys.exit()
-            self.dfA.columns = ['CID', 'AGE', 'MEASURE_DATE', 'MEASURE_TYPE', 'MEASURE_VAL']
-            self.dfA = self.dfA.drop_duplicates().reset_index()
+        if len(self.dfA.columns)!=7:
+            logger.error('Input file does not have the correct number of columns. The columns expected are: CID (ID of children), Date of birth, Gender, Age at measurement, Measure date, Measure type, Measure value. If the age at measurement is empty then the date of birth should be available.')
+            sys.exit()
+        self.dfA.columns = ['CID', 'DOB', 'GENDER', 'AGE', 'MEASURE_DATE', 'MEASURE_TYPE', 'MEASURE_VAL']
+        self.demoDf = self.dfA[['CID', 'DOB', 'GENDER']].drop_duplicates().reset_index()
+        self.dfA = self.dfA[['CID', 'AGE', 'MEASURE_DATE', 'MEASURE_TYPE', 'MEASURE_VAL']].drop_duplicates().reset_index()
             
-            if self.demofn.endswith('.csv'):
-                self.demoDf = pd.read_csv(self.demofn)
-            elif self.demofn.endswith('.xlsx'):
-                self.demoDf = pd.read_excel(self.demofn)
-            self.demoDf = self.demoDf.drop_duplicates().reset_index()
             
     def makeChildrenList(self):
         if self.ids == None:
             self.ids = self.demoDf.CID.tolist()
+        logger.info('Preparing data processing for {} individuals.'.format(len(self.ids)))
         for cid in self.ids:
             dft = self.dfA[self.dfA.CID == cid]
             dfdt = self.demoDf[self.demoDf.CID == cid]
-            
             childModule = childMeasurement()
             childModule.set_cid(cid)
             childModule.setGender(dfdt.GENDER.tolist()[0])
             childModule.setDob(dfdt.DOB.tolist()[0])
             childModule.addMeasurementFromDf(dft)
-            #childModule.printMeasurements()
             self.children.append(childModule)
         return
     
     def runOutlierDetection(self, fonPrefix=None):
         prefix = fonPrefix
         self.makeChildrenList()
-        if len(self.ids)>10: #do not put plots to file if the number of children to process exceed 10
-            prefix = None
         
+        if len(self.ids)>5: #do not put plots to file if the number of children to process exceed 5
+            prefix = None
+        if prefix != None:
+            logger.info('Processing and generating growth charts for {} individuals'.format(len(self.ids)))
         for idx, child in zip(self.ids, self.children):
-            print (idx)
             child.calculateSDSVal(self.sdsModule)
             if prefix:
                 fon = prefix + '_{}_height.png'.format(idx)
@@ -562,20 +544,23 @@ class PEANOF(object):
         
         self.dfAO = pd.concat([child.getOutDf() for child in self.children])
         self.dfSO = pd.concat([child.getAllSummaryStats() for child in self.children])
-        
-        self.dfAO.to_csv(self.fon, index=False)
+        cols=['CID','AGE','MEASURE_DATE','MEASURE_TYPE','MEASURE_VAL','SDS','FILTER_FLAG']
+        self.dfAO[cols].to_csv(self.fon, index=False)
         self.dfSO.to_csv(self.fon.replace('.csv', '_summary.csv'), index=False)
+        logger.info('Output files: measurements with flags {}, and summary statistics per individual {}'.format(self.fon, self.fon.replace('.csv', '_summary.csv')))
+        logger.info('Outlier flagging completed.')
 
 if __name__ == "__main__":
     usage = "usage: python %prog [options] \n" 
     version = "%prog 0.1"
     
     parser = OptionParser(usage=usage, version=version)
-    parser.add_option("-r", "--refg", dest="refg", type="string", default='Growth_Reference_Data.csv', help="Growth reference table used for calculating SDS values from age, gender and measurement")
-    parser.add_option("-n", "--number", dest="sds", type = 'int', default= 0, help = '\t\t0: calculate SDS values only for one individual, require age or dob, measuredates, and measurements\n\t\t1: outlier flagging for the whole input file, require input file with ID, DOB, GENDER, AGE, MEASURE DATE, MEASURE TYPE and MEASURE VALUE. If no AGE information is available, both MEASURE DATE and DOB must be present. These are required to calculate SDS values. \n\t\t2: outlier flagging for a subset of children specified in -i (--ids)')
-    parser.add_option("-f", "--fn", dest="fn", type="string", default=None, help="Name of file containing height and/or weight measurements with age and gender")
+    parser.add_option("-r", "--refg", dest="refg", type="string", default= _baseDir +'/'+ 'Growth_Reference_Data.csv', help="Growth reference table used for calculating SDS values from age, gender and measurement")
+    parser.add_option("-n", "--number", dest="sds", type = 'int', default= 0, help = '\n0: calculate SDS values only for one individual, require age or dob, measuredates, and measurements  \n1: outlier flagging for the whole input file, require input file with ID, DOB, GENDER, AGE, MEASURE DATE, MEASURE TYPE and MEASURE VALUE. If no AGE information is available, both MEASURE DATE and DOB must be present. These are required to calculate SDS values. If --ids (-i) is set to a list of IDs then would only process the specified IDs in the dataset')
+    parser.add_option("-f", "--fn", dest="fn", type="string", default=None, help="Name of file containing height and weight measurements with age and gender, can be xlsx file or csv file, and the columns must be in order of ID, DOB, GENDER, AGE, MEASURE DATE, MEASURE TYPE, MEASURE VALUE")
     parser.add_option("-o", "--fon", dest = "fon", type="string", default = None, help="Name of output file")
     parser.add_option("-i", "--ids", dest = "ids", type="string", default = None, help="List of IDs of individuals to process, comma separated list, if no setting, the program will process all")
+    parser.add_option("-p", "--prefix", dest = "prefix", type="string", default = 'peanof', help="Prefix of output images for --ids option in processing a limited number of children")
     parser.add_option("-a", "--age", dest = "age", type="string", default = '', help="Age at measurement. Can have multiple age value separated by comma")
     parser.add_option("-m", "--measurement", dest = "measurement", type="string", default = '', help = "Measured value. Can have multiple measurement separated by comma")
     parser.add_option("-t", "--measureType", dest = "measureType", type = "string", default = "WEIGHT", help = "Type of measurement, WEIGHT in kg or HEIGHT in cm, default is WEIGHT")
@@ -611,26 +596,9 @@ if __name__ == "__main__":
     elif opts.sds ==1:
         if opts.ids:
             outlierFlagC = PEANOF(sdsModule, opts.fn, opts.fon, ids= opts.ids.split(','))
-            outlierFlagC.runOutlierDetection(fonPrefix='peonf')
+            outlierFlagC.runOutlierDetection(fonPrefix=opts.prefix)
         else:
             outlierFlagC = PEANOF(sdsModule, opts.fn, opts.fon)
-            outlierFlagC.runOutlierDetection()
-        pass
-    elif opts.sds ==2:
-        if opts.age:
-            childModule = childMeasurement()
-            childModule.setGender(opts.gender)
-            childModule.addMeasurementWithAge(ages, opts.measureType,  vals)
-        if opts.dom:
-            childModule = childMeasurement()
-            childModule.setDob(opts.dob)
-            childModule.setGender(opts.gender)
-            childModule.addMeasurementWithDate(doms, opts.measureType, vals)
-        if opts.age or opts.dom:
-            childModule = childMeasurement()
-            childModule.calculateSDSVal(sdsModule)
-            childModule.printMeasurements()
-                        
-    #flaggingModule= PEANOF(opts)
-    #flaggingModule.runOutlierFlagging()
+            outlierFlagC.runOutlierDetection()                        
+
 
