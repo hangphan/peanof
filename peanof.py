@@ -184,6 +184,8 @@ class childMeasurement(object):
         return
     
     def checkWHOThreshold(self, measureType, SDSVal):
+        if pd.isnull(SDSVal):
+            return 'BEYOND_AGE_RANGE'
         if SDSVal < WHOThreshold[measureType][0] or SDSVal > WHOThreshold[measureType][1]:
             return 'WHO'
         else:
@@ -204,7 +206,9 @@ class childMeasurement(object):
         2. 3 months : +- 40%
         3. 1 year: +-50%
         '''
+        
         dft = self.dfA[(self.dfA.MEASURE_TYPE == 'CHILD_WEIGHT')&(self.dfA.FILTER_FLAG!='WHO')]
+        
         daysInYear=365.25
         oneDay, threeMonths, oneYear = 1.0/daysInYear, 0.25, 1
         idxList = dft.index.tolist()
@@ -266,7 +270,7 @@ class childMeasurement(object):
         return
     
     def filterByAdultHeight(self):
-        dft =  self.dfA[(self.dfA.MEASURE_TYPE == 'CHILD_HEIGHT')&(~self.dfA.FILTER_FLAG.isin(['WHO', 'OLS_OUTLIER', 'OLS_FEW_REMAIN']))]
+        dft =  self.dfA[(self.dfA.MEASURE_TYPE == 'CHILD_HEIGHT')&(~self.dfA.FILTER_FLAG.isin(['WHO', 'OLS_OUTLIER', 'OLS_FEW_REMAIN', 'BEYOND_AGE_RANGE']))]
         dft=dft[dft.AGE>=18]
         heights = dft.MEASURE_VAL
         if len(heights) ==0:
@@ -300,7 +304,7 @@ class childMeasurement(object):
         cut-off for DFFITS 2*sqrt(k/n)
         cut-off for DFBETAS 2/sqrt(n)  where k=1
         '''
-        dft =  self.dfA[(self.dfA.MEASURE_TYPE == measureType)&(self.dfA.FILTER_FLAG!='WHO')].copy()
+        dft =  self.dfA[(self.dfA.MEASURE_TYPE == measureType)&(self.dfA.FILTER_FLAG!='WHO')&(self.dfA.FILTER_FLAG!='BEYOND_AGE_RANGE')].copy()
         reg = linear_model.LinearRegression()
         regression = OLS(dft.MEASURE_VAL,dft.AGE).fit()
         infl = regression.get_influence()
@@ -343,7 +347,7 @@ class childMeasurement(object):
     
     
     def outlierFlaggingFull(self, measureType, childSDSC = None, fon = None):
-        dft = self.dfA[(self.dfA.MEASURE_TYPE==measureType)  & (~self.dfA.FILTER_FLAG.isin(['WHO']))]
+        dft = self.dfA[(self.dfA.MEASURE_TYPE==measureType)  &(~self.dfA.FILTER_FLAG.isin(['WHO', 'BEYOND_AGE_RANGE']))]
         if len(dft) ==0:
             return
         if len(dft) ==1:
