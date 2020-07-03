@@ -437,7 +437,7 @@ class childSDS(object):
         ageForSDS = self.getLowerClosest(ageVecInGRT, age)
         dfSlice.set_index(['MEASURE_TYPE', 'GENDER', 'AGE']) #data frame for grow reference table
         val = dfSlice.loc[ dfSlice['AGE']== ageForSDS]
-        M,L,S = float(val.M), float(val.L), float(val.S)
+        M,L,S = float(val.M.iloc[0]), float(val.L.iloc[0]), float(val.S.iloc[0])
         SDSVal = ((measureVal/M)**L-1)/(L*S)
         if self.sds:
             logger.debug("SDS value of the child {} measurement of {} is {}".format(measureType, measureVal, round(SDSVal,2)))
